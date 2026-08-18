@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autenticador — Ninja Gamer</title>
+<style>
+  :root{
+    --bg:#0A0E14;
+    --surface:#131923;
+    --surface-hover:#1B2330;
+    --border:#232B38;
+    --text:#E7ECF3;
+    --text-dim:#8A93A6;
+    --accent:#5B8DEF;
+    --accent-soft:rgba(91,141,239,0.15);
+    --warn:#F2B84B;
+    --danger:#F26D6D;
+    --danger-soft:rgba(242,109,109,0.12);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:var(--sans); background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
+  #app{ max-width:640px; margin:0 auto; padding:24px 16px 80px; display:none; }
+
+  /* ---------- login ---------- */
+  #loginScreen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .login-card{
+    width:100%; max-width:340px; background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; padding:28px 24px; text-align:center;
+  }
+  .login-card .lock{ color:var(--accent); margin-bottom:14px; }
+  .login-card h1{ font-size:17px; font-weight:600; margin-bottom:4px; }
+  .login-card p{ font-size:13px; color:var(--text-dim); margin-bottom:20px; }
+  .login-card input{
+    width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    padding:11px 14px; border-radius:10px; font-size:15px; outline:none; text-align:center;
+    letter-spacing:0.05em; margin-bottom:12px;
+  }
+  .login-card input:focus{ border-color:var(--accent); }
+  .login-card button{
+    width:100%; background:var(--accent); color:#fff; border:none; padding:11px;
+    border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .login-card button:disabled{ opacity:.5; cursor:not-allowed; }
+  .login-error{ color:var(--danger); font-size:12.5px; margin-top:10px; min-height:16px; }
+
+  /* ---------- header ---------- */
+  header{ margin-bottom:20px; }
+  .title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  h1.app-title{ font-size:19px; font-weight:600; letter-spacing:-0.01em; }
+  h1.app-title .dim{ color:var(--text-dim); font-weight:500; }
+  .header-actions{ display:flex; gap:8px; align-items:center; }
+  .add-btn{
+    display:flex; align-items:center; gap:6px;
+    background:var(--accent); color:#fff; border:none;
+    padding:9px 14px; border-radius:10px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:filter .15s ease, transform .1s ease;
+  }
+  .add-btn:hover{ filter:brightness(1.1); }
+  .add-btn:active{ transform:scale(0.97); }
+  .logout-btn{
+    background:transparent; border:1px solid var(--border); color:var(--text-dim);
+    padding:9px 12px; border-radius:10px; font-size:13px; cursor:pointer;
+  }
+  .logout-btn:hover{ color:var(--text); background:var(--surface-hover); }
+
+  .search-wrap{ position:relative; }
+  .search-wrap svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); }
+  #search{
+    width:100%; background:var(--surface); border:1px solid var(--border);
+    color:var(--text); padding:10px 12px 10px 38px; border-radius:10px;
+    font-size:14px; outline:none; transition:border-color .15s ease;
+  }
+  #search::placeholder{ color:var(--text-dim); }
+  #search:focus{ border-color:var(--accent); }
+
+  /* ---------- list ---------- */
+  #list{ margin-top:18px; display:flex; flex-direction:column; gap:10px; }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; transition:border-color .15s ease; }
+  .card:hover{ border-color:#2C3646; }
+  .card-main{ display:flex; align-items:center; justify-content:space-between; padding:14px 14px 14px 16px; cursor:pointer; gap:12px; }
+  .card-info{ min-width:0; flex:1; }
+  .card-label{ font-size:13px; color:var(--text-dim); font-weight:500; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card-code{ font-family:var(--mono); font-size:26px; font-weight:600; letter-spacing:0.04em; color:var(--text); display:flex; align-items:baseline; gap:2px; }
+  .card-code .grp{ display:inline-block; }
+  .card-right{ display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .ring{ position:relative; width:34px; height:34px; }
+  .ring svg{ transform:rotate(-90deg); }
+  .ring circle{ fill:none; stroke-width:3; }
+  .ring .track{ stroke:var(--border); }
+  .ring .progress{ stroke:var(--accent); stroke-linecap:round; transition:stroke .3s ease; }
+  .ring.warn .progress{ stroke:var(--warn); }
+  .ring-label{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--text-dim); font-family:var(--mono); }
+  .icon-btn{ width:30px; height:30px; border-radius:8px; border:none; background:transparent; color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s ease, color .15s ease; }
+  .icon-btn:hover{ background:var(--surface-hover); color:var(--text); }
+  .chevron{ transition:transform .2s ease; color:var(--text-dim); flex-shrink:0; }
+  .card.open .chevron{ transform:rotate(180deg); }
+  .card-detail{ max-height:0; overflow:hidden; transition:max-height .22s ease; border-top:1px solid transparent; }
+  .card.open .card-detail{ max-height:420px; border-top:1px solid var(--border); }
+  .detail-inner{ padding:14px 16px 16px; }
+  .detail-row{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-dim); margin-bottom:10px; }
+  .detail-row span:last-child{ color:var(--text); font-family:var(--mono); }
+  .backup-title{ font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; margin:12px 0 8px; }
+  .backup-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .backup-code{ font-family:var(--mono); font-size:13px; padding:7px 9px; border-radius:8px; background:var(--bg); border:1px solid var(--border); color:var(--text); display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
+  .backup-code.used{ color:var(--text-dim); text-decoration:line-through; opacity:.55; }
+  .backup-code .n{ color:var(--text-dim); margin-right:6px; font-size:11px; }
+  .detail-actions{ display:flex; gap:8px; margin-top:14px; }
+  .btn-secondary, .btn-danger{ flex:1; padding:9px; border-radius:9px; font-size:13px; font-weight:600; border:1px solid var(--border); background:transparent; cursor:pointer; transition:background .15s ease, border-color .15s ease; }
+  .btn-secondary{ color:var(--text); }
+  .btn-secondary:hover{ background:var(--surface-hover); }
+  .btn-danger{ color:var(--danger); border-color:var(--danger-soft); }
+  .btn-danger:hover{ background:var(--danger-soft); }
+
+  .empty{ text-align:center; padding:64px 20px; color:var(--text-dim); }
+  .empty svg{ margin-bottom:14px; opacity:.5; }
+  .empty p{ font-size:14px; line-height:1.5; }
+  .empty .big{ font-size:15px; color:var(--text); font-weight:600; margin-bottom:6px; }
+
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--surface); border:1px solid var(--border); color:var(--text);
+    padding:10px 16px; border-radius:10px; font-size:13px; font-weight:500;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
+    display:flex; align-items:center; gap:8px; z-index:200;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(5,7,11,0.7); backdrop-filter:blur(2px);
+    display:flex; align-items:flex-end; justify-content:center; z-index:100;
+    opacity:0; pointer-events:none; transition:opacity .18s ease;
+  }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  @media (min-width:560px){ .overlay{ align-items:center; } }
+  .modal{
+    background:var(--surface); border:1px solid var(--border); border-radius:18px 18px 0 0;
+    width:100%; max-width:480px; max-height:88vh; overflow-y:auto; padding:20px 18px 24px;
+    transform:translateY(16px); transition:transform .2s ease;
+  }
+  .overlay.show .modal{ transform:translateY(0); }
+  @media (min-width:560px){ .modal{ border-radius:18px; } }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .modal-head h2{ font-size:16px; font-weight:600; }
+  .tabs{ display:flex; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:3px; margin-bottom:18px; }
+  .tab{ flex:1; text-align:center; padding:8px; border-radius:8px; font-size:13px; font-weight:600; color:var(--text-dim); cursor:pointer; transition:background .15s ease, color .15s ease; }
+  .tab.active{ background:var(--surface-hover); color:var(--text); }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  .field input, .field textarea{ width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:10px 12px; border-radius:10px; font-size:14px; outline:none; font-family:var(--sans); transition:border-color .15s ease; }
+  .field textarea{ font-family:var(--mono); font-size:13px; resize:vertical; min-height:64px; }
+  .field input:focus, .field textarea:focus{ border-color:var(--accent); }
+  .drop-zone{ border:1.5px dashed var(--border); border-radius:12px; padding:28px 16px; text-align:center; cursor:pointer; transition:border-color .15s ease, background .15s ease; color:var(--text-dim); font-size:13px; }
+  .drop-zone:hover{ border-color:var(--accent); background:var(--accent-soft); }
+  .drop-zone svg{ margin-bottom:8px; }
+  .drop-zone.has-preview{ padding:12px; }
+  .drop-zone img{ max-width:100%; max-height:160px; border-radius:8px; display:block; margin:0 auto; }
+  .parse-status{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; font-size:12.5px; margin-top:10px; }
+  .parse-status.ok{ background:var(--accent-soft); color:var(--accent); }
+  .parse-status.err{ background:var(--danger-soft); color:var(--danger); }
+  .modal-submit{ width:100%; background:var(--accent); color:#fff; border:none; padding:12px; border-radius:11px; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; transition:filter .15s ease, opacity .15s ease; }
+  .modal-submit:hover{ filter:brightness(1.08); }
+  .modal-submit:disabled{ opacity:.4; cursor:not-allowed; }
+  .loading{ text-align:center; padding:60px 0; color:var(--text-dim); font-size:13px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <svg class="lock" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <h1>Autenticador Ninja Gamer</h1>
+    <p>Digite a senha de acesso da equipe</p>
+    <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
+    <button id="loginSubmit">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="title-row">
+      <h1 class="app-title">Autenticador <span class="dim">· Ninja Gamer</span></h1>
+      <div class="header-actions">
+        <button class="add-btn" id="openAdd">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova conta
+        </button>
+        <button class="logout-btn" id="importBtn">Importar</button>
+        <button class="logout-btn" id="logoutBtn">Sair</button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search" placeholder="Pesquisar conta...">
+    </div>
+  </header>
+  <div id="list"></div>
+</div>
+
+<div id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Adicionar conta</h2>
+      <button class="icon-btn" id="closeAdd">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="paste">Colar secret / URI</div>
+      <div class="tab" data-tab="image">Imagem do QR</div>
+    </div>
+    <div id="tab-paste">
+      <div class="field">
+        <label>Secret TOTP ou URI otpauth completa</label>
+        <textarea id="pasteInput" placeholder="Cole aqui o secret (ex: JBSWY3DPEHPK3PXP) ou a URI completa (otpauth://totp/...)"></textarea>
+      </div>
+      <div id="pasteStatus"></div>
+    </div>
+    <div id="tab-image" style="display:none;">
+      <div class="field">
+        <div class="drop-zone" id="dropZone">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <div id="dropZoneText">Toque para enviar a imagem do QR Code</div>
+          <input type="file" id="fileInput" accept="image/*" style="display:none;">
+        </div>
+      </div>
+      <div id="imageStatus"></div>
+    </div>
+    <div class="field" style="margin-top:4px;">
+      <label>Rótulo (issuer)</label>
+      <input id="fieldIssuer" placeholder="Sony">
+    </div>
+    <div class="field">
+      <label>Conta / e-mail</label>
+      <input id="fieldAccount" placeholder="ninja12345@ninjagamers.com.br">
+    </div>
+    <div class="field">
+      <label>Códigos de backup <span style="color:var(--text-dim); font-weight:400;">(opcional, um por linha)</span></label>
+      <textarea id="fieldBackup" placeholder="Cole os 10 códigos de backup, um por linha" style="min-height:96px;"></textarea>
+    </div>
+    <button class="modal-submit" id="submitAdd" disabled>Adicionar conta</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script>
+(function(){
+
+  // ---------------- API ----------------
+  async function apiGetAccounts(){
+    const res = await fetch('/api/accounts');
+    if(res.status === 401) throw { unauthorized:true };
+    if(!res.ok) throw new Error('Falha ao carregar contas');
+    const data = await res.json();
+    return data.accounts || [];
+  }
+  async function apiSaveAccounts(accounts){
+    const res = await fetch('/api/accounts', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ accounts })
+    });
+    if(res.status === 401) throw { unauthorized:true };
+    if(!res.ok) throw new Error('Falha ao salvar contas');
+    return true;
+  }
+
+  let accounts = [];
+  let storageReady = false;
+
+  async function loadAccounts(){
+    document.getElementById('list').innerHTML = '<div class="loading">Carregando contas...</div>';
+    try{
+      accounts = await apiGetAccounts();
+    }catch(e){
+      if(e && e.unauthorized){ showLogin(); return; }
+      accounts = [];
+      showToast('Erro ao carregar contas do servidor');
+    }
+    storageReady = true;
+    render();
+  }
+
+  async function saveAccounts(){
+    try{
+      await apiSaveAccounts(accounts);
+    }catch(e){
+      if(e && e.unauthorized){ showLogin(); return; }
+      showToast('Erro ao salvar. Tente novamente.');
+    }
+  }
+
+  // ---------------- login ----------------
+  function showLogin(){
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  }
+  function showApp(){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  }
+
+  const loginPassword = document.getElementById('loginPassword');
+  const loginSubmit = document.getElementById('loginSubmit');
+  const loginError = document.getElementById('loginError');
+
+  async function doLogin(){
+    const password = loginPassword.value;
+    if(!password) return;
+    loginSubmit.disabled = true;
+    loginError.textContent = '';
+    try{
+      const res = await fetch('/api/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        loginError.textContent = data.error || 'Senha incorreta';
+        loginSubmit.disabled = false;
+        return;
+      }
+      showApp();
+      await loadAccounts();
+      await refreshAllCodes();
+      render();
+    }catch(e){
+      loginError.textContent = 'Erro de conexão. Tente novamente.';
+      loginSubmit.disabled = false;
+    }
+  }
+  loginSubmit.addEventListener('click', doLogin);
+  loginPassword.addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
+
+  document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+    await fetch('/api/logout', { method:'POST' });
+    loginPassword.value = '';
+    loginSubmit.disabled = false;
+    showLogin();
+  });
+
+  // ---------------- TOTP ----------------
+  function base32ToBytes(b32){
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    const clean = b32.toUpperCase().replace(/=+$/,'').replace(/[^A-Z2-7]/g,'');
+    let bits = '';
+    for(const ch of clean){
+      const val = alphabet.indexOf(ch);
+      if(val === -1) continue;
+      bits += val.toString(2).padStart(5,'0');
+    }
+    const bytes = [];
+    for(let i=0; i+8<=bits.length; i+=8){
+      bytes.push(parseInt(bits.substr(i,8),2));
+    }
+    return new Uint8Array(bytes);
+  }
+
+  async function totpCode(secret, period, digits){
+    period = period || 30;
+    digits = digits || 6;
+    const keyBytes = base32ToBytes(secret);
+    if(keyBytes.length === 0) return null;
+    const counter = Math.floor(Date.now()/1000/period);
+    const buf = new ArrayBuffer(8);
+    const view = new DataView(buf);
+    view.setUint32(0, Math.floor(counter / 0x100000000));
+    view.setUint32(4, counter >>> 0);
+    try{
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-1'}, false, ['sign']);
+      const sig = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, buf));
+      const offset = sig[sig.length-1] & 0xf;
+      const bin = ((sig[offset] & 0x7f) << 24) | ((sig[offset+1] & 0xff) << 16) | ((sig[offset+2] & 0xff) << 8) | (sig[offset+3] & 0xff);
+      const otp = (bin % (10 ** digits)).toString().padStart(digits,'0');
+      return otp;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function parseOtpauth(uri){
+    try{
+      const url = new URL(uri.trim());
+      if(url.protocol !== 'otpauth:') return null;
+      const label = decodeURIComponent(url.pathname.replace(/^\/+/,''));
+      const params = url.searchParams;
+      const secret = params.get('secret');
+      if(!secret) return null;
+      let issuer = params.get('issuer') || '';
+      let account = label;
+      if(label.includes(':')){
+        const idx = label.indexOf(':');
+        if(!issuer) issuer = label.slice(0, idx);
+        account = label.slice(idx+1);
+      }
+      return {
+        issuer: issuer || '',
+        account: account || '',
+        secret: secret.replace(/\s/g,''),
+        digits: parseInt(params.get('digits') || '6', 10),
+        period: parseInt(params.get('period') || '30', 10)
+      };
+    }catch(e){ return null; }
+  }
+
+  // ---------------- render ----------------
+  const listEl = document.getElementById('list');
+  let openCardId = null;
+  let searchTerm = '';
+
+  function fmtCode(code){
+    if(!code) return '------';
+    const mid = Math.ceil(code.length/2);
+    return `<span class="grp">${code.slice(0,mid)}</span> <span class="grp">${code.slice(mid)}</span>`;
+  }
+
+  function timeRemaining(period){
+    period = period || 30;
+    const now = Math.floor(Date.now()/1000);
+    return period - (now % period);
+  }
+
+  const codeCache = {};
+
+  async function refreshAllCodes(){
+    for(const acc of accounts){
+      const remaining = timeRemaining(acc.period);
+      if(!codeCache[acc.id] || remaining === (acc.period||30)){
+        codeCache[acc.id] = await totpCode(acc.secret, acc.period, acc.digits);
+      }
+    }
+  }
+
+  function ringSvg(remaining, period){
+    period = period || 30;
+    const r = 14, c = 2*Math.PI*r;
+    const frac = remaining/period;
+    const dash = c*frac;
+    const warn = remaining <= 5;
+    return `<div class="ring ${warn?'warn':''}">
+      <svg width="34" height="34" viewBox="0 0 34 34">
+        <circle class="track" cx="17" cy="17" r="${r}"/>
+        <circle class="progress" cx="17" cy="17" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c-dash}"/>
+      </svg>
+      <div class="ring-label">${remaining}</div>
+    </div>`;
+  }
+
+  function render(){
+    if(!storageReady) return;
+    const filtered = accounts.filter(a=>{
+      const t = searchTerm.toLowerCase();
+      if(!t) return true;
+      return (a.issuer+' '+a.account).toLowerCase().includes(t);
+    });
+
+    if(accounts.length === 0){
+      listEl.innerHTML = `<div class="empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M7 8V6a5 5 0 0 1 10 0v2"/></svg>
+        <div class="big">Nenhuma conta ainda</div>
+        <p>Adicione um secret TOTP ou envie a imagem<br>do QR Code para começar.</p>
+      </div>`;
+      return;
+    }
+    if(filtered.length === 0){
+      listEl.innerHTML = `<div class="empty"><p>Nenhuma conta encontrada para "${searchTerm}".</p></div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(acc=>{
+      const remaining = timeRemaining(acc.period);
+      const code = codeCache[acc.id] || '------';
+      const isOpen = openCardId === acc.id;
+      const backups = acc.backupCodes || [];
+      const backupHtml = backups.length ? `
+        <div class="backup-title">Códigos de backup (${backups.filter(b=>!b.used).length}/${backups.length} restantes)</div>
+        <div class="backup-grid">
+          ${backups.map((b,i)=>`<div class="backup-code ${b.used?'used':''}" data-acc="${acc.id}" data-idx="${i}"><span><span class="n">${i+1}.</span>${b.code}</span></div>`).join('')}
+        </div>
+      ` : `<div class="backup-title">Nenhum código de backup salvo</div>`;
+
+      return `<div class="card ${isOpen?'open':''}" data-id="${acc.id}">
+        <div class="card-main" data-toggle="${acc.id}">
+          <div class="card-info">
+            <div class="card-label">${escapeHtml(acc.issuer)}${acc.issuer && acc.account ? ': ' : ''}${escapeHtml(acc.account)}</div>
+            <div class="card-code" data-copy="${acc.id}">${fmtCode(code)}</div>
+          </div>
+          <div class="card-right">
+            ${ringSvg(remaining, acc.period)}
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="card-detail">
+          <div class="detail-inner">
+            <div class="detail-row"><span>Conta</span><span>${escapeHtml(acc.account || '—')}</span></div>
+            <div class="detail-row"><span>Adicionado em</span><span>${acc.createdAt ? new Date(acc.createdAt).toLocaleDateString('pt-BR') : '—'}</span></div>
+            ${backupHtml}
+            <div class="detail-actions">
+              <button class="btn-secondary" data-copy="${acc.id}">Copiar código</button>
+              <button class="btn-danger" data-delete="${acc.id}">Excluir</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  listEl.addEventListener('click', async (e)=>{
+    const toggle = e.target.closest('[data-toggle]');
+    const copyBtn = e.target.closest('[data-copy]');
+    const delBtn = e.target.closest('[data-delete]');
+    const backupCode = e.target.closest('.backup-code');
+
+    if(copyBtn){
+      e.stopPropagation();
+      const id = copyBtn.dataset.copy;
+      const code = codeCache[id];
+      if(code){
+        try{ await navigator.clipboard.writeText(code); showToast('Código copiado'); }
+        catch(err){ showToast('Não foi possível copiar'); }
+      }
+      return;
+    }
+    if(delBtn){
+      e.stopPropagation();
+      const id = delBtn.dataset.delete;
+      const acc = accounts.find(a=>a.id===id);
+      if(confirm(`Excluir a conta "${acc.issuer||''} ${acc.account||''}"? Essa ação não pode ser desfeita.`)){
+        accounts = accounts.filter(a=>a.id!==id);
+        delete codeCache[id];
+        if(openCardId===id) openCardId=null;
+        await saveAccounts();
+        render();
+        showToast('Conta removida');
+      }
+      return;
+    }
+    if(backupCode){
+      const accId = backupCode.dataset.acc;
+      const idx = parseInt(backupCode.dataset.idx,10);
+      const acc = accounts.find(a=>a.id===accId);
+      if(acc && acc.backupCodes[idx]){
+        acc.backupCodes[idx].used = !acc.backupCodes[idx].used;
+        await saveAccounts();
+        render();
+      }
+      return;
+    }
+    if(toggle){
+      const id = toggle.dataset.toggle;
+      openCardId = openCardId === id ? null : id;
+      render();
+      return;
+    }
+  });
+
+  document.getElementById('search').addEventListener('input', (e)=>{
+    searchTerm = e.target.value;
+    render();
+  });
+
+  setInterval(async ()=>{
+    if(!storageReady) return;
+    await refreshAllCodes();
+    render();
+  }, 1000);
+
+  let toastTimer;
+  function showToast(msg){
+    const el = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> el.classList.remove('show'), 2200);
+  }
+
+  // ---------------- modal ----------------
+  const overlay = document.getElementById('overlay');
+  const openAdd = document.getElementById('openAdd');
+  const closeAdd = document.getElementById('closeAdd');
+  const submitAdd = document.getElementById('submitAdd');
+  const pasteInput = document.getElementById('pasteInput');
+  const pasteStatus = document.getElementById('pasteStatus');
+  const imageStatus = document.getElementById('imageStatus');
+  const fieldIssuer = document.getElementById('fieldIssuer');
+  const fieldAccount = document.getElementById('fieldAccount');
+  const fieldBackup = document.getElementById('fieldBackup');
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const dropZoneText = document.getElementById('dropZoneText');
+
+  let currentTab = 'paste';
+  let parsedSecret = null;
+
+  function resetModal(){
+    pasteInput.value = '';
+    fieldIssuer.value = '';
+    fieldAccount.value = '';
+    fieldBackup.value = '';
+    pasteStatus.innerHTML = '';
+    imageStatus.innerHTML = '';
+    dropZone.classList.remove('has-preview');
+    dropZoneText.textContent = 'Toque para enviar a imagem do QR Code';
+    dropZone.querySelectorAll('img').forEach(i=>i.remove());
+    parsedSecret = null;
+    submitAdd.disabled = true;
+    currentTab = 'paste';
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab==='paste'));
+    document.getElementById('tab-paste').style.display = '';
+    document.getElementById('tab-image').style.display = 'none';
+  }
+
+  openAdd.addEventListener('click', ()=>{ resetModal(); overlay.classList.add('show'); });
+  closeAdd.addEventListener('click', ()=> overlay.classList.remove('show'));
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.classList.remove('show'); });
+
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTab = tab.dataset.tab;
+      document.getElementById('tab-paste').style.display = currentTab==='paste' ? '' : 'none';
+      document.getElementById('tab-image').style.display = currentTab==='image' ? '' : 'none';
+      validateModal();
+    });
+  });
+
+  function applyParsed(parsed){
+    parsedSecret = parsed;
+    if(parsed.issuer && !fieldIssuer.value) fieldIssuer.value = parsed.issuer;
+    if(parsed.account && !fieldAccount.value) fieldAccount.value = parsed.account;
+  }
+
+  function secretPreviewHtml(secret){
+    const grouped = secret.replace(/[^A-Z2-7]/g,'').match(/.{1,4}/g)?.join(' ') || secret;
+    return `<div class="field" style="margin-top:8px; margin-bottom:0;">
+      <label>Confira: é exatamente isso que está na tela da PSN?</label>
+      <div style="font-family:var(--mono); font-size:14px; letter-spacing:0.03em; background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:9px 12px; word-break:break-all;">${grouped}</div>
+    </div>`;
+  }
+
+  pasteInput.addEventListener('input', ()=>{
+    const val = pasteInput.value.trim();
+    parsedSecret = null;
+    if(!val){ pasteStatus.innerHTML=''; validateModal(); return; }
+    if(val.startsWith('otpauth://')){
+      const parsed = parseOtpauth(val);
+      if(parsed){
+        applyParsed(parsed);
+        pasteStatus.innerHTML = `<div class="parse-status ok">URI reconhecida — secret extraído com sucesso.</div>` + secretPreviewHtml(parsed.secret);
+      }else{
+        pasteStatus.innerHTML = `<div class="parse-status err">Não foi possível interpretar essa URI otpauth.</div>`;
+      }
+    }else{
+      const rawNoSpace = val.replace(/\s/g,'').toUpperCase();
+      const onlyValidChars = rawNoSpace.replace(/[^A-Z2-7]/g,'');
+      const strictBytes = base32ToBytes(rawNoSpace);
+      if(rawNoSpace.length > 0 && onlyValidChars.length === rawNoSpace.length && strictBytes.length > 0){
+        parsedSecret = { secret: rawNoSpace, issuer:'', account:'', digits:6, period:30 };
+        pasteStatus.innerHTML = `<div class="parse-status ok">Secret válido em Base32.</div>` + secretPreviewHtml(rawNoSpace);
+      }else if(onlyValidChars.length > 0){
+        pasteStatus.innerHTML = `<div class="parse-status err">O texto colado tem caracteres que não são Base32 válido (ex: rótulo, pontuação). Cole <strong>só</strong> o código do secret, sem texto ao redor.</div>`;
+      }else{
+        pasteStatus.innerHTML = `<div class="parse-status err">Isso não parece um secret Base32 válido nem uma URI otpauth.</div>`;
+      }
+    }
+    validateModal();
+  });
+
+  function tryDecodeQR(img){
+    if(!window.jsQR) return null;
+    const scales = [1, 2, 0.5, 3];
+    for(const scale of scales){
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      if(w*h > 30_000_000) continue;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = scale < 1;
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const result = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+      if(result && result.data) return result;
+    }
+    return null;
+  }
+
+  dropZone.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', (e)=>{ const file = e.target.files[0]; if(file) handleImageFile(file); });
+  dropZone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropZone.style.borderColor='var(--accent)'; });
+  dropZone.addEventListener('dragleave', ()=>{ dropZone.style.borderColor=''; });
+  dropZone.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    dropZone.style.borderColor='';
+    const file = e.dataTransfer.files[0];
+    if(file) handleImageFile(file);
+  });
+
+  function handleImageFile(file){
+    imageStatus.innerHTML = `<div class="parse-status">Lendo imagem...</div>`;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const result = tryDecodeQR(img);
+
+        dropZone.classList.add('has-preview');
+        dropZone.querySelectorAll('img').forEach(i=>i.remove());
+        const preview = document.createElement('img');
+        preview.src = ev.target.result;
+        dropZone.appendChild(preview);
+        dropZoneText.textContent = 'Toque para trocar a imagem';
+
+        if(result && result.data && result.data.startsWith('otpauth://')){
+          const parsed = parseOtpauth(result.data);
+          if(parsed){
+            applyParsed(parsed);
+            imageStatus.innerHTML = `<div class="parse-status ok">QR Code lido — secret extraído com sucesso.</div>`;
+          }else{
+            imageStatus.innerHTML = `<div class="parse-status err">QR Code encontrado, mas não é um formato otpauth reconhecido.</div>`;
+          }
+        }else{
+          parsedSecret = null;
+          imageStatus.innerHTML = `<div class="parse-status err">Nenhum QR Code otpauth encontrado nessa imagem. Tente uma foto mais nítida e bem enquadrada no QR, ou use a aba "Colar secret / URI" com o código alfanumérico exibido pela PSN.</div>`;
+        }
+        validateModal();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  fieldIssuer.addEventListener('input', validateModal);
+  fieldAccount.addEventListener('input', validateModal);
+
+  function validateModal(){
+    const hasSecret = !!(parsedSecret && parsedSecret.secret);
+    const hasLabel = fieldIssuer.value.trim() || fieldAccount.value.trim();
+    submitAdd.disabled = !(hasSecret && hasLabel);
+  }
+
+  submitAdd.addEventListener('click', async ()=>{
+    if(!parsedSecret) return;
+    const backupLines = fieldBackup.value.split('\n').map(l=>l.trim()).filter(Boolean);
+    const acc = {
+      id: 'acc_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+      issuer: fieldIssuer.value.trim(),
+      account: fieldAccount.value.trim(),
+      secret: parsedSecret.secret,
+      digits: parsedSecret.digits || 6,
+      period: parsedSecret.period || 30,
+      backupCodes: backupLines.map(code => ({ code, used:false })),
+      createdAt: Date.now()
+    };
+    accounts.unshift(acc);
+    await saveAccounts();
+    await refreshAllCodes();
+    overlay.classList.remove('show');
+    render();
+    showToast('Conta adicionada');
+  });
+
+  // ---------------- init ----------------
+  (async function init(){
+    try{
+      accounts = await apiGetAccounts();
+      storageReady = true;
+      showApp();
+      await refreshAllCodes();
+      render();
+    }catch(e){
+      showLogin();
+    }
+  })();
+
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    const win = document.createElement('div');
+    win.style.cssText = 'position:fixed; inset:0; background:rgba(5,7,11,0.85); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px;';
+    win.innerHTML = `<div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; max-width:520px; width:100%; max-height:80vh; display:flex; flex-direction:column; gap:12px;">
+      <div style="font-weight:600; font-size:15px;">Importar contas</div>
+      <div style="font-size:12.5px; color:var(--text-dim);">Cole aqui o JSON exportado do app antigo. Contas com o mesmo e-mail já existentes serão substituídas; as demais são adicionadas.</div>
+      <textarea id="importTextarea" placeholder="Cole o JSON aqui" style="flex:1; min-height:200px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:10px; font-family:var(--mono); font-size:12px;"></textarea>
+      <div id="importMsg" style="font-size:12.5px; min-height:16px; color:var(--danger);"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="confirmImport" style="flex:1; background:var(--accent); color:#fff; border:none; padding:10px; border-radius:9px; font-weight:600; cursor:pointer;">Importar</button>
+        <button id="cancelImport" style="flex:1; background:transparent; border:1px solid var(--border); color:var(--text); padding:10px; border-radius:9px; font-weight:600; cursor:pointer;">Cancelar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(win);
+    win.querySelector('#cancelImport').addEventListener('click', ()=> win.remove());
+    win.addEventListener('click', (e)=>{ if(e.target===win) win.remove(); });
+    win.querySelector('#confirmImport').addEventListener('click', async ()=>{
+      const msgEl = win.querySelector('#importMsg');
+      let incoming;
+      try{
+        incoming = JSON.parse(win.querySelector('#importTextarea').value);
+        if(!Array.isArray(incoming)) throw new Error('não é uma lista');
+      }catch(e){
+        msgEl.textContent = 'JSON inválido — confira se colou o conteúdo completo.';
+        return;
+      }
+      let added = 0, replaced = 0;
+      for(const inc of incoming){
+        if(!inc || !inc.secret) continue;
+        const idx = accounts.findIndex(a => a.account && inc.account && a.account.toLowerCase() === inc.account.toLowerCase() && a.issuer === inc.issuer);
+        if(idx >= 0){ accounts[idx] = inc; replaced++; }
+        else { accounts.push(inc); added++; }
+      }
+      await saveAccounts();
+      await refreshAllCodes();
+      render();
+      win.remove();
+      showToast(`Importado: ${added} nova(s), ${replaced} atualizada(s)`);
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

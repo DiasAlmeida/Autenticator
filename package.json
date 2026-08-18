@@ -1,0 +1,9 @@
+{
+  "name": "ninjagamer-autenticador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App de autenticador TOTP interno da Ninja Gamer",
+  "engines": {
+    "node": ">=18"
+  }
+}
