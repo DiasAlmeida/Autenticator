@@ -276,10 +276,31 @@
   let accounts = [];
   let storageReady = false;
 
+  function newId(){
+    return 'acc_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+  }
+
+  // Garante que toda conta tenha um id único. Sem isso, contas sem id
+  // (ex: vindas de um JSON importado manualmente) colidem na mesma chave
+  // do cache de códigos e passam a exibir o mesmo TOTP entre si.
+  function ensureUniqueIds(list){
+    const seen = new Set();
+    let changed = false;
+    for(const acc of list){
+      if(!acc.id || seen.has(acc.id)){
+        acc.id = newId();
+        changed = true;
+      }
+      seen.add(acc.id);
+    }
+    return changed;
+  }
+
   async function loadAccounts(){
     document.getElementById('list').innerHTML = '<div class="loading">Carregando contas...</div>';
     try{
       accounts = await apiGetAccounts();
+      if(ensureUniqueIds(accounts)) await saveAccounts();
     }catch(e){
       if(e && e.unauthorized){ showLogin(); return; }
       accounts = [];
@@ -758,7 +779,7 @@
     if(!parsedSecret) return;
     const backupLines = fieldBackup.value.split('\n').map(l=>l.trim()).filter(Boolean);
     const acc = {
-      id: 'acc_' + Date.now() + '_' + Math.random().toString(36).slice(2,8),
+      id: newId(),
       issuer: fieldIssuer.value.trim(),
       account: fieldAccount.value.trim(),
       secret: parsedSecret.secret,
@@ -779,6 +800,7 @@
   (async function init(){
     try{
       accounts = await apiGetAccounts();
+      if(ensureUniqueIds(accounts)) await saveAccounts();
       storageReady = true;
       showApp();
       await refreshAllCodes();
@@ -817,10 +839,12 @@
       let added = 0, replaced = 0;
       for(const inc of incoming){
         if(!inc || !inc.secret) continue;
+        if(!inc.id) inc.id = newId();
         const idx = accounts.findIndex(a => a.account && inc.account && a.account.toLowerCase() === inc.account.toLowerCase() && a.issuer === inc.issuer);
         if(idx >= 0){ accounts[idx] = inc; replaced++; }
         else { accounts.push(inc); added++; }
       }
+      ensureUniqueIds(accounts);
       await saveAccounts();
       await refreshAllCodes();
       render();
